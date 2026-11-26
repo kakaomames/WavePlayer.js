@@ -6,6 +6,8 @@
   "files": [
   "WavePlayer.js",
   "WavePlayer.min.js",
+  "main.js",
+  "main.min.js",
   "README.md",
   "LICENSE"
   ],
