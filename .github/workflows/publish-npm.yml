@@ -21,9 +21,13 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Minify WavePlayer.js automatically
+        run: |
+          npx --yes terser WavePlayer.js --compress --mangle -o WavePlayer.min.js
+          ls -lh WavePlayer.js WavePlayer.min.js
+
       - name: Verify package files
         run: |
-          ls -la
           node -e "const pkg = require('./package.json'); console.log('Publishing:', pkg.name, pkg.version);"
 
       - name: Publish to npm
