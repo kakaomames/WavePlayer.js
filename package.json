@@ -2,7 +2,7 @@
   "name": "kakaomame-wave-player",
   "version": "1.0.2",
   "description": "Generate and play wave audio from a number with cross-platform Web Audio unlock support.",
-  "main": "wavePlayer.js",
+  "main": "main.js",
   "files": [
   "WavePlayer.js",
   "WavePlayer.min.js",
