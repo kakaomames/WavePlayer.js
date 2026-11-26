@@ -23,8 +23,9 @@ jobs:
 
       - name: Minify WavePlayer.js automatically
         run: |
-          npx --yes terser WavePlayer.js --compress --mangle -o WavePlayer.min.js
-          ls -lh WavePlayer.js WavePlayer.min.js
+          npx --yes esbuild main.js --bundle --minify --format=esm --outfile=main.min.js
+          npx --yes esbuild WavePlayer.js --minify --format=esm --outfile=WavePlayer.min.js
+          ls -lh WavePlayer.js WavePlayer.min.js main.js main.min.js
 
       - name: Verify package files
         run: |
