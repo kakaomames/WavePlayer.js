@@ -1,0 +1,14 @@
+{
+  "name": "kakaomame-wave-player",
+  "version": "1.0.0",
+  "description": "Generate and play wave audio from a number with cross-platform Web Audio unlock support.",
+  "main": "wavePlayer.js",
+  "keywords": [
+    "web-audio",
+    "wave",
+    "sound",
+    "synthesizer",
+    "audio"
+  ],
+  "license": "MIT"
+}
