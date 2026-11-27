@@ -1,14 +1,28 @@
 /**
- * WavePlayer.js
- * 読み込むだけでユーザー操作（タップ・クリック・キー入力）を検知して音声制限を解除し、
- * playWaveFromNumber(数字, 秒数, 音量) で波を生成・再生する本体モジュール。
+ * WavePlayer.js（固まり防止・ステップログ強化版）
  */
 let audioCtx = null;
 let unlocked = false;
 let unlockPromise = null;
 
 function logChange(level, message) {
-  console.log(`[WavePlayer:${level}] ${message}`);
+  const line = `[WavePlayer:${level}] ${message}`;
+  console.log(line);
+  if (typeof window !== "undefined" && typeof window.onWpLog === "function") {
+    window.onWpLog(level, message);
+  }
+}
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => {
+      setTimeout(() => {
+        logChange("WARN", `${label} が ${ms}ms でタイムアウト（固まり回避）`);
+        resolve("timeout");
+      }, ms);
+    }),
+  ]);
 }
 
 function ensureAudioContext() {
@@ -32,6 +46,7 @@ function playSilentUnlockBuffer(ctx) {
     source.buffer = buffer;
     source.connect(ctx.destination);
     source.start(0);
+    logChange("UNLOCK", "無音バッファ再生完了");
     return true;
   } catch (err) {
     logChange("WARN", `無音バッファ再生スキップ -> ${err}`);
@@ -41,22 +56,21 @@ function playSilentUnlockBuffer(ctx) {
 
 async function unlockAudio() {
   if (unlockPromise) {
+    logChange("STATE", "既存の unlockPromise を待機中...");
     return unlockPromise;
   }
 
   unlockPromise = (async () => {
+    logChange("STEP", "unlockAudio 開始");
     const ctx = ensureAudioContext();
     if (!ctx) {
       return null;
     }
 
     if (ctx.state === "suspended" || ctx.state === "interrupted") {
-      try {
-        await ctx.resume();
-        logChange("STATE", `AudioContext resume 完了 -> state=${ctx.state}`);
-      } catch (err) {
-        logChange("WARN", `AudioContext resume 保留 -> ${err}`);
-      }
+      logChange("STEP", `ctx.resume() 実行前 -> state=${ctx.state}`);
+      await withTimeout(ctx.resume(), 300, "ctx.resume()");
+      logChange("STATE", `ctx.resume() 通過 -> state=${ctx.state}`);
     }
 
     if (!unlocked && ctx.state === "running") {
@@ -90,6 +104,7 @@ function attachUnlockListeners() {
   unlockEvents.forEach((eventName) => {
     g.addEventListener(eventName, handleAutoUnlock, { passive: true });
   });
+  logChange("INIT", "自動アンロックリスナー登録完了");
 }
 
 function cleanupUnlockListeners() {
@@ -111,26 +126,17 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-/**
- * 数字を受け取って波を生成し、再生する関数
- * @param {number} value - 周波数(Hz)として扱う数字（20〜20000に制限、不正値は440）
- * @param {number} [duration=0.4] - 再生時間（秒、0.005秒以上）
- * @param {number} [volume=0.3] - 音量倍率（0.0〜1.0に制限）
- * @param {function|null} [waveFn=null] - カスタム波形関数 (t, freq, sampleRate) => -1.0〜1.0
- * @returns {Promise<AudioBufferSourceNode|null>}
- */
 export async function playWaveFromNumber(value, duration = 0.4, volume = 0.3, waveFn = null) {
-  const ctx = await unlockAudio();
-  if (!ctx) {
+  logChange("STEP", `playWaveFromNumber 開始 -> value=${value}, duration=${duration}, volume=${volume}`);
+  const ctx = await withTimeout(unlockAudio(), 500, "unlockAudio()");
+  if (!ctx || typeof ctx !== "object") {
+    logChange("WARN", `有効な AudioContext が取得できませんでした -> ctx=${String(ctx)}`);
     return null;
   }
 
   if (ctx.state !== "running") {
-    try {
-      await ctx.resume();
-    } catch (_) {
-      // ユーザー操作前の呼び出しでは running にならない場合がある
-    }
+    logChange("STEP", `再生前 resume 試行 -> state=${ctx.state}`);
+    await withTimeout(ctx.resume(), 300, "再生前 ctx.resume()");
   }
 
   const baseValue = normalizeNumber(value, 440);
@@ -178,7 +184,7 @@ export async function playWaveFromNumber(value, duration = 0.4, volume = 0.3, wa
 
   logChange(
     "PLAY",
-    `freq=${freq}Hz, duration=${safeDuration}s, volume=${safeVolume}, unlocked=${unlocked}, state=${ctx.state}`
+    `再生スタート！freq=${freq}Hz, duration=${safeDuration}s, volume=${safeVolume}, unlocked=${unlocked}, state=${ctx.state}`
   );
 
   return source;
